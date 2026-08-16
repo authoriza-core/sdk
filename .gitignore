@@ -59,6 +59,3 @@ vite.config.ts.timestamp-*
 
 # Intellij
 .idea/
-
-# Specifiations for AI-agents
-.specs/
