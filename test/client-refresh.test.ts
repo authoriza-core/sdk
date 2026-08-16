@@ -13,6 +13,7 @@ import {
   stubFetch,
   waitForInit,
 } from './helpers.js';
+import { generateRsaKeyPair, makeIdToken } from './jwt-helper.js';
 
 function makeAuth(onError?: (e: unknown) => void) {
   return createAuthoriza({
@@ -232,5 +233,89 @@ describe('getAccessToken', () => {
     const states = collectStates(auth);
     await auth.getAccessToken();
     expect(states).toHaveLength(0);
+  });
+
+  it('updates the user from the id_token returned during refresh', async () => {
+    const keyPair = await generateRsaKeyPair();
+    stubFetch(async (url) => {
+      if (url.includes('.well-known')) return httpResponse(discoveryBody());
+      if (url.endsWith('/jwks')) return httpResponse({ keys: [keyPair.jwk] });
+      if (url.endsWith('/token')) {
+        const idToken = await makeIdToken(keyPair, {
+          payload: { sub: 'user-2', email: 'new@example.com', name: 'New User' },
+        });
+        return httpResponse({
+          access_token: 'new-access',
+          token_type: 'Bearer',
+          expires_in: 3600,
+          refresh_token: 'new-refresh',
+          id_token: idToken,
+        });
+      }
+      return undefined;
+    });
+    seedSession(
+      makeSession({
+        accessToken: 'old',
+        refreshToken: 'rt',
+        expiresAt: Date.now() - 1,
+        user: { id: 'user-1', email: 'old@example.com', name: 'Old User' },
+      }),
+    );
+    const auth = makeAuth();
+    await waitForInit(auth);
+
+    await auth.getAccessToken();
+
+    expect(auth.user).toEqual({ id: 'user-2', email: 'new@example.com', name: 'New User' });
+    const stored = JSON.parse(window.localStorage.getItem(sessionKey())!);
+    expect(stored.user).toEqual({ id: 'user-2', email: 'new@example.com', name: 'New User' });
+  });
+
+  it('keeps the previous user when the refresh response does not include an id_token', async () => {
+    stubFetch((url) => {
+      if (url.includes('.well-known')) return httpResponse(discoveryBody());
+      if (url.endsWith('/token')) {
+        return httpResponse({ access_token: 'new-access', token_type: 'Bearer', expires_in: 3600 });
+      }
+      return undefined;
+    });
+    seedSession(
+      makeSession({
+        accessToken: 'old',
+        refreshToken: 'rt',
+        expiresAt: Date.now() - 1,
+        user: { id: 'user-1', email: 'old@example.com', name: 'Old User' },
+      }),
+    );
+    const auth = makeAuth();
+    await waitForInit(auth);
+
+    await auth.getAccessToken();
+
+    expect(auth.user).toEqual({ id: 'user-1', email: 'old@example.com', name: 'Old User' });
+  });
+
+  it('throws TOKEN_REFRESH_FAILED when the refresh response contains an invalid id_token', async () => {
+    const onError = vi.fn();
+    stubFetch((url) => {
+      if (url.includes('.well-known')) return httpResponse(discoveryBody());
+      if (url.endsWith('/token')) {
+        return httpResponse({
+          access_token: 'new-access',
+          token_type: 'Bearer',
+          expires_in: 3600,
+          refresh_token: 'new-refresh',
+          id_token: 'invalid-token',
+        });
+      }
+      return undefined;
+    });
+    seedSession(makeSession({ accessToken: 'old', refreshToken: 'rt', expiresAt: Date.now() - 1 }));
+    const auth = makeAuth(onError);
+    await waitForInit(auth);
+
+    await expect(auth.getAccessToken()).rejects.toMatchObject({ code: 'TOKEN_REFRESH_FAILED' });
+    expect(auth.isAuthenticated).toBe(true);
   });
 });

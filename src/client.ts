@@ -384,7 +384,7 @@ export class AuthorizaClient {
 
   private async validateIdToken(
     idToken: string,
-    expectedNonce: string,
+    expectedNonce: string | undefined,
   ): Promise<Record<string, unknown>> {
     const discovery = await this.getDiscovery();
     let decoded: DecodedIdToken;
@@ -450,7 +450,7 @@ export class AuthorizaClient {
     if (typeof claims.exp !== 'number' || claims.exp * 1000 <= Date.now()) {
       throw new AuthorizaError('TOKEN_EXCHANGE_FAILED', 'ID Token is missing exp or has expired');
     }
-    if (claims.nonce !== expectedNonce) {
+    if (expectedNonce !== undefined && claims.nonce !== expectedNonce) {
       throw new AuthorizaError(
         'INVALID_NONCE',
         'ID Token nonce does not match the authentication flow',
@@ -562,12 +562,21 @@ export class AuthorizaClient {
       return null;
     }
 
+    let user = session.user;
+    if (parsed.idToken !== null) {
+      try {
+        const idClaims = await this.validateIdToken(parsed.idToken, undefined);
+        user = buildUser(idClaims);
+      } catch (error) {
+        throw new AuthorizaError('TOKEN_REFRESH_FAILED', 'Token refresh failed', { cause: error });
+      }
+    }
+
     const refreshed: Session = {
       accessToken: parsed.accessToken,
       refreshToken: parsed.refreshToken ?? session.refreshToken,
       expiresAt: Date.now() + parsed.expiresIn * 1000,
-      // TODO: get user from idToken instead the one from storage
-      user: session.user,
+      user,
     };
     await this.writeSession(refreshed);
     this.currentSession = refreshed;
