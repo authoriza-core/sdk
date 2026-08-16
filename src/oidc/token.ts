@@ -41,11 +41,7 @@ export async function tokenRequest(
   }
 
   if (!response.ok) {
-    if (
-      data &&
-      typeof data === 'object' &&
-      typeof (data as Record<string, unknown>).error === 'string'
-    ) {
+    if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') {
       const errorBody = data as Record<string, unknown>;
       throw new OAuthServerError(
         errorBody.error as string,

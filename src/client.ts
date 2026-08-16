@@ -90,6 +90,7 @@ export class AuthorizaClient {
   }
 
   get user(): User | null {
+    // TODO: return object copy, mutation-safe
     return this.currentSession?.user ?? null;
   }
 
@@ -565,6 +566,7 @@ export class AuthorizaClient {
       accessToken: parsed.accessToken,
       refreshToken: parsed.refreshToken ?? session.refreshToken,
       expiresAt: Date.now() + parsed.expiresIn * 1000,
+      // TODO: get user from idToken instead the one from storage
       user: session.user,
     };
     await this.writeSession(refreshed);
@@ -642,8 +644,9 @@ export class AuthorizaClient {
     for (const listener of [...this.listeners]) {
       try {
         listener(state);
-      } catch {
+      } catch (error) {
         // Listener errors belong to the application.
+        console.log(error);
       }
     }
   }

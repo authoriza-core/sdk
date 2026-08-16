@@ -27,15 +27,13 @@ export function isValidRelativePath(value: unknown): value is string {
     return false;
   }
   // Reject control characters and DEL.
+  // biome-ignore lint/suspicious/noControlCharactersInRegex:
   // eslint-disable-next-line no-control-regex
   if (/[\u0000-\u001f\u007f]/.test(value)) {
     return false;
   }
   // Reject scheme-like path segments, e.g. /javascript:alert(1)
-  if (/^\/[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value)) {
-    return false;
-  }
-  return true;
+  return !/^\/[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value);
 }
 
 /**

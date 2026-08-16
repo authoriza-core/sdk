@@ -27,7 +27,11 @@ export function parseStoredSession(raw: string): ParseStoredSessionResult {
   if (typeof record.accessToken !== 'string' || record.accessToken.length === 0) {
     return { ok: false };
   }
-  if (record.refreshToken !== null && typeof record.refreshToken !== 'string') {
+  if (
+    record.refreshToken !== null &&
+    record.refreshToken !== undefined &&
+    typeof record.refreshToken !== 'string'
+  ) {
     return { ok: false };
   }
   if (typeof record.expiresAt !== 'number' || !Number.isFinite(record.expiresAt)) {
@@ -56,7 +60,7 @@ export function parseStoredSession(raw: string): ParseStoredSessionResult {
     ok: true,
     session: {
       accessToken: record.accessToken,
-      refreshToken: record.refreshToken,
+      refreshToken: record.refreshToken || null,
       expiresAt: record.expiresAt,
       user,
     },

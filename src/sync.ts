@@ -31,7 +31,8 @@ export class CrossTabSync {
         if (
           event.data &&
           typeof event.data === 'object' &&
-          (event.data as { type?: string }).type === 'session-changed'
+          'type' in event.data &&
+          event.data.type === 'session-changed'
         ) {
           this.onChange();
         }
