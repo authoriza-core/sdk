@@ -90,8 +90,8 @@ export class AuthorizaClient {
   }
 
   get user(): User | null {
-    // TODO: return object copy, mutation-safe
-    return this.currentSession?.user ?? null;
+    const user = this.currentSession?.user ?? null;
+    return user ? Object.assign({}, user) : null;
   }
 
   getAuthState(): AuthState {
