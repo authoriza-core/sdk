@@ -10,14 +10,14 @@ import { SESSION_KEY_PREFIX } from './storage/session.js';
  */
 export class CrossTabSync {
   private readonly channelName: string;
-  private readonly sessionKey: string;
+  private readonly notificationKey: string;
   private readonly onChange: () => void;
   private channel: BroadcastChannel | null = null;
   private storageHandler: ((event: StorageEvent) => void) | null = null;
 
   constructor(clientId: string, onChange: () => void) {
     this.channelName = `${SESSION_KEY_PREFIX}${clientId}`;
-    this.sessionKey = `${SESSION_KEY_PREFIX}${clientId}`;
+    this.notificationKey = `authoriza:sync:${clientId}`;
     this.onChange = onChange;
   }
 
@@ -39,7 +39,7 @@ export class CrossTabSync {
       };
     } else {
       this.storageHandler = (event: StorageEvent) => {
-        if (event.key === this.sessionKey) {
+        if (event.key === this.notificationKey) {
           this.onChange();
         }
       };
@@ -48,7 +48,23 @@ export class CrossTabSync {
   }
 
   post(): void {
-    this.channel?.postMessage({ type: 'session-changed' });
+    if (this.channel) {
+      this.channel.postMessage({ type: 'session-changed' });
+      return;
+    }
+
+    if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(
+        this.notificationKey,
+        `${Date.now()}:${Math.random().toString(36).slice(2)}`,
+      );
+    } catch {
+      // Best effort: cross-tab notification must not break session operations.
+    }
   }
 
   dispose(): void {
