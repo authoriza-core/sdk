@@ -14,6 +14,7 @@ export type AuthorizaErrorCode =
   | 'AUTHORIZATION_ERROR'
   | 'TOKEN_EXCHANGE_FAILED'
   | 'TOKEN_REFRESH_FAILED'
+  | 'USER_NOT_AUTHENTICATED'
   | 'INVALID_SESSION'
   | 'STORAGE_ERROR'
   | 'USER_CANCELLED'
@@ -30,6 +31,7 @@ const DEFAULT_MESSAGES: Record<AuthorizaErrorCode, string> = {
   AUTHORIZATION_ERROR: 'Authorization server returned an error',
   TOKEN_EXCHANGE_FAILED: 'Token exchange failed',
   TOKEN_REFRESH_FAILED: 'Token refresh failed',
+  USER_NOT_AUTHENTICATED: 'User is not authenticated',
   INVALID_SESSION: 'The session is invalid',
   STORAGE_ERROR: 'Session storage operation failed',
   USER_CANCELLED: 'User cancelled the authorization',

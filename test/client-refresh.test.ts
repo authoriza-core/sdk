@@ -36,11 +36,13 @@ describe('getAccessToken', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('returns null when the user is not authenticated', async () => {
+  it('throws USER_NOT_AUTHENTICATED when the user is not authenticated', async () => {
     stubFetch(() => httpResponse(discoveryBody()));
     const auth = makeAuth();
     await waitForInit(auth);
-    await expect(auth.getAccessToken()).resolves.toBeNull();
+    await expect(auth.getAccessToken()).rejects.toMatchObject({
+      code: 'USER_NOT_AUTHENTICATED',
+    });
   });
 
   it('refreshes an expired access token and persists the new tokens', async () => {
@@ -127,7 +129,7 @@ describe('getAccessToken', () => {
     expect(results).toEqual(['new-access', 'new-access', 'new-access']);
   });
 
-  it('clears the session and returns null when the refresh token is rejected', async () => {
+  it('clears the session and throws USER_NOT_AUTHENTICATED when the refresh token is rejected', async () => {
     const onError = vi.fn();
     stubFetch((url) => {
       if (url.includes('.well-known')) return httpResponse(discoveryBody());
@@ -142,9 +144,10 @@ describe('getAccessToken', () => {
     await waitForInit(auth);
 
     const states = collectStates(auth);
-    const token = await auth.getAccessToken();
-
-    expect(token).toBeNull();
+    await expect(auth.getAccessToken()).rejects.toMatchObject({
+      code: 'USER_NOT_AUTHENTICATED',
+      details: { oauthError: 'invalid_grant', oauthErrorDescription: 'expired' },
+    });
     expect(auth.isAuthenticated).toBe(false);
     expect(auth.user).toBeNull();
     expect(window.localStorage.getItem(sessionKey())).toBeNull();
@@ -213,7 +216,7 @@ describe('getAccessToken', () => {
     await auth.logout();
     resolveGate();
 
-    await expect(pending).resolves.toBeNull();
+    await expect(pending).rejects.toMatchObject({ code: 'USER_NOT_AUTHENTICATED' });
     expect(auth.isAuthenticated).toBe(false);
     expect(window.localStorage.getItem(sessionKey())).toBeNull();
   });
