@@ -1,8 +1,15 @@
 {
   "name": "@authoriza/sdk",
-  "version": "1.0.0",
-  "description": "Framework-agnostic OIDC Authorization Code Flow SDK for Authoriza (browser only)",
+  "version": "0.1.0",
+  "description": "SDK for integrating Authoriza authentication",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/authoriza-core/sdk"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
