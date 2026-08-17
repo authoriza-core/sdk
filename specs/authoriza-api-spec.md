@@ -708,7 +708,13 @@ email
 offline_access
 ```
 
-SDK по умолчанию использует:
+Минимальный обязательный scope SDK:
+
+```text
+openid
+```
+
+Если приложение не передало `scope` в конфигурации, SDK использует набор по умолчанию:
 
 ```text
 openid profile email offline_access
@@ -719,6 +725,8 @@ openid profile email offline_access
 `profile` и `email` позволяют получать соответствующие claims.
 
 `offline_access` используется для получения refresh token.
+
+Если приложение передало `scope` в конфигурации, SDK добавляет к нему только обязательный `openid`; `profile`, `email` и `offline_access` включаются только при явной передаче приложением.
 
 ---
 

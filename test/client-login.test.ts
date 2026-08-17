@@ -91,13 +91,16 @@ describe('login', () => {
       }
       return undefined;
     });
-    const auth = createAuthoriza({ clientId: CLIENT_ID, redirectUri: REDIRECT_URI });
+    const auth = createAuthoriza({
+      clientId: CLIENT_ID,
+      redirectUri: REDIRECT_URI,
+    });
     await auth.login();
     const url = new URL(lastNavigation()!);
     expect(url.origin + url.pathname).toBe('https://oidc.authoriza.ru/oidc/auth');
   });
 
-  it('merges configured scopes with the required set', async () => {
+  it('uses configured scopes plus only mandatory SDK scopes', async () => {
     stubFetch((url) => {
       if (url.includes('.well-known')) return httpResponse(discoveryBody());
       return undefined;
@@ -107,6 +110,9 @@ describe('login', () => {
     const scope = new URL(lastNavigation()!).searchParams.get('scope');
     expect(scope).toContain('openid');
     expect(scope).toContain('custom_scope');
+    expect(scope).not.toContain('profile');
+    expect(scope).not.toContain('email');
+    expect(scope).not.toContain('offline_access');
     expect(scope!.split(' ').filter((s) => s === 'openid')).toHaveLength(1);
   });
 
@@ -158,7 +164,9 @@ describe('login', () => {
       return undefined;
     });
     const auth = makeAuth();
-    await expect(auth.login()).rejects.toMatchObject({ code: 'DISCOVERY_FAILED' });
+    await expect(auth.login()).rejects.toMatchObject({
+      code: 'DISCOVERY_FAILED',
+    });
     expect(navigationCount()).toBe(0);
     // The aborted flow must be cleaned up so the next login starts fresh.
     expect(window.sessionStorage.getItem(flowKey())).toBeNull();
