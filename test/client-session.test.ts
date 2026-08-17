@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createAuthoriza } from '../src/index.js';
+import type { Session, SessionStorage } from '../src/index.js';
 import {
   CLIENT_ID,
   ISSUER,
@@ -177,6 +178,78 @@ describe('cross-tab synchronization', () => {
     });
     expect(b.user).toBeNull();
     expect(window.localStorage.getItem(sessionKey())).toBeNull();
+  });
+
+  it('uses the localStorage notification fallback with custom SessionStorage', async () => {
+    vi.stubGlobal('BroadcastChannel', undefined);
+
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function setItemWithStorageEvent(
+      this: Storage,
+      key: string,
+      value: string,
+    ) {
+      originalSetItem.call(this, key, value);
+      if (this === window.localStorage) {
+        window.dispatchEvent(
+          new StorageEvent('storage', {
+            key,
+            newValue: value,
+            storageArea: window.localStorage,
+          }),
+        );
+      }
+    });
+
+    stubFetch((url) => {
+      if (url.includes('.well-known')) return httpResponse(discoveryBody());
+      return undefined;
+    });
+
+    let sharedSession: Session | null = makeSession();
+    const storage: SessionStorage = {
+      async get() {
+        return sharedSession
+          ? { ...sharedSession, user: sharedSession.user && { ...sharedSession.user } }
+          : null;
+      },
+      async set(session) {
+        sharedSession = { ...session, user: session.user && { ...session.user } };
+      },
+      async clear() {
+        sharedSession = null;
+      },
+    };
+
+    const a = createAuthoriza({
+      clientId: CLIENT_ID,
+      redirectUri: REDIRECT_URI,
+      issuer: ISSUER,
+      sessionStorage: storage,
+    });
+    const b = createAuthoriza({
+      clientId: CLIENT_ID,
+      redirectUri: REDIRECT_URI,
+      issuer: ISSUER,
+      sessionStorage: storage,
+    });
+    await Promise.all([waitForInit(a), waitForInit(b)]);
+    expect(a.isAuthenticated).toBe(true);
+    expect(b.isAuthenticated).toBe(true);
+
+    await a.logout();
+
+    await vi.waitFor(() => {
+      if (b.isAuthenticated) {
+        throw new Error('fallback logout not synced');
+      }
+    });
+    expect(b.user).toBeNull();
+    expect(window.localStorage.getItem('authoriza:sync:test-client')).not.toBeNull();
+    expect(window.localStorage.getItem('authoriza:sync:test-client')).not.toContain('access-token');
+    expect(window.localStorage.getItem('authoriza:sync:test-client')).not.toContain(
+      'refresh-token',
+    );
   });
 
   it('keeps different clientIds isolated', async () => {
