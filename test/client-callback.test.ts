@@ -94,6 +94,35 @@ describe('automatic callback handling', () => {
     expect(fetch.mock.calls.map((c) => String(c[0]))).toContain(`${ISSUER}/jwks`);
   });
 
+  it.each([
+    'https://evil.example/callback',
+    '//evil.example',
+    '/javascript:alert(1)',
+    '/dashboard\\evil',
+  ])(
+    'rejects a callback when the stored redirectAfterLoginTo is tampered with: %s',
+    async (redirectAfterLoginTo) => {
+      const onError = vi.fn();
+      navigateToCallback({ code: 'code-1', state: 'state-123' });
+      seedFlow('state-123', { redirectAfterLoginTo });
+      stubFetch((url) => {
+        if (url.includes('.well-known')) return httpResponse(discoveryBody());
+        return undefined;
+      });
+
+      const auth = makeAuth(onError);
+      await waitForInit(auth);
+
+      expect(auth.isAuthenticated).toBe(false);
+      expect(auth.user).toBeNull();
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError.mock.calls[0]![0].code).toBe('INVALID_REDIRECT_AFTER_LOGIN');
+      expect(window.localStorage.getItem(sessionKey())).toBeNull();
+      expect(window.sessionStorage.getItem(flowKey())).toBeNull();
+      expect(lastNavigation()).toBeNull();
+    },
+  );
+
   it('rejects a callback with a mismatched state and does not create a session', async () => {
     const onError = vi.fn();
     navigateToCallback({ code: 'code-1', state: 'wrong-state' });

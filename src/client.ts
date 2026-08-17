@@ -297,7 +297,13 @@ export class AuthorizaClient {
     const oauthError = params.get('error');
     const errorDescription = params.get('error_description');
 
-    const flow = await this.flowStorage.get();
+    let flow: AuthFlow | null;
+    try {
+      flow = await this.flowStorage.get();
+    } catch (error) {
+      await this.clearFlow();
+      throw error;
+    }
     if (!flow) {
       throw new AuthorizaError(
         'INVALID_STATE',
