@@ -127,7 +127,7 @@ describe('getAccessToken', () => {
     expect(results).toEqual(['new-access', 'new-access', 'new-access']);
   });
 
-  it('clears the session and returns null when the refresh token is rejected', async () => {
+  it('clears the session and throws TOKEN_REFRESH_FAILED when the refresh token is rejected', async () => {
     const onError = vi.fn();
     stubFetch((url) => {
       if (url.includes('.well-known')) return httpResponse(discoveryBody());
@@ -142,14 +142,61 @@ describe('getAccessToken', () => {
     await waitForInit(auth);
 
     const states = collectStates(auth);
-    const token = await auth.getAccessToken();
 
-    expect(token).toBeNull();
+    await expect(auth.getAccessToken()).rejects.toMatchObject({
+      code: 'TOKEN_REFRESH_FAILED',
+      details: { oauthError: 'invalid_grant', oauthErrorDescription: 'expired' },
+      cause: expect.objectContaining({
+        name: 'OAuthServerError',
+        oauthError: 'invalid_grant',
+        oauthErrorDescription: 'expired',
+      }),
+    });
     expect(auth.isAuthenticated).toBe(false);
     expect(auth.user).toBeNull();
     expect(window.localStorage.getItem(sessionKey())).toBeNull();
     // The authenticated → unauthenticated transition was published.
     expect(states.some((s) => !s.isAuthenticated && !s.isLoading)).toBe(true);
+  });
+
+  it('propagates the same controlled refresh rejection to concurrent callers', async () => {
+    const tokenRequests: string[] = [];
+    stubFetch((url) => {
+      if (url.includes('.well-known')) return httpResponse(discoveryBody());
+      if (url.endsWith('/token')) {
+        tokenRequests.push(url);
+        return httpResponse({ error: 'invalid_token', error_description: 'revoked' }, 400);
+      }
+      return undefined;
+    });
+    seedSession(makeSession({ accessToken: 'old', refreshToken: 'rt', expiresAt: Date.now() - 1 }));
+    const auth = makeAuth();
+    await waitForInit(auth);
+
+    const results = await Promise.allSettled([
+      auth.getAccessToken(),
+      auth.getAccessToken(),
+      auth.getAccessToken(),
+    ]);
+
+    expect(tokenRequests).toHaveLength(1);
+    const reasons = results.map((result) => {
+      expect(result.status).toBe('rejected');
+      return result.status === 'rejected' ? result.reason : undefined;
+    });
+    expect(reasons[0]).toBe(reasons[1]);
+    expect(reasons[1]).toBe(reasons[2]);
+    expect(reasons[0]).toMatchObject({
+      code: 'TOKEN_REFRESH_FAILED',
+      details: { oauthError: 'invalid_token', oauthErrorDescription: 'revoked' },
+      cause: expect.objectContaining({
+        name: 'OAuthServerError',
+        oauthError: 'invalid_token',
+        oauthErrorDescription: 'revoked',
+      }),
+    });
+    expect(auth.isAuthenticated).toBe(false);
+    expect(window.localStorage.getItem(sessionKey())).toBeNull();
   });
 
   it('keeps the session on a technical refresh failure and throws TOKEN_REFRESH_FAILED', async () => {

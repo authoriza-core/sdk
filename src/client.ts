@@ -541,7 +541,13 @@ export class AuthorizaClient {
         (error.oauthError === 'invalid_grant' || error.oauthError === 'invalid_token')
       ) {
         await this.invalidateSession();
-        return null;
+        throw new AuthorizaError('TOKEN_REFRESH_FAILED', 'Token refresh failed', {
+          cause: error,
+          details: {
+            oauthError: error.oauthError,
+            oauthErrorDescription: error.oauthErrorDescription,
+          },
+        });
       }
       throw new AuthorizaError('TOKEN_REFRESH_FAILED', 'Token refresh failed', { cause: error });
     }
