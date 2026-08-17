@@ -58,7 +58,7 @@ export interface AuthorizaConfig {
   redirectUri: string;
   /** Optional issuer URL; defaults to the Authoriza production issuer. */
   issuer?: string;
-  /** Optional additional scopes merged with the required SDK scopes. */
+  /** Optional OIDC scopes. When omitted, the SDK uses its default scope set. */
   scope?: string[];
   /** Optional custom session storage implementation. */
   sessionStorage?: SessionStorage;

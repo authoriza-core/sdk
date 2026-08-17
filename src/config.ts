@@ -4,12 +4,15 @@ import type { AuthorizaConfig, SessionStorage } from './types.js';
 
 export const DEFAULT_ISSUER = 'https://oidc.authoriza.ru/oidc';
 
+/** Scopes that are mandatory for the SDK to function. `openid` is required for OIDC. */
+export const REQUIRED_SCOPES = ['openid'] as const;
+
 /**
- * Scopes that are mandatory for the SDK to function. `openid` is required for
- * OIDC, `profile`/`email` provide user claims, `offline_access` yields a
- * refresh token.
+ * Scopes used when an application does not configure scopes explicitly.
+ * Applications that provide `scope` opt in only to those scopes plus the
+ * mandatory OIDC scope above.
  */
-export const REQUIRED_SCOPES = ['openid', 'profile', 'email', 'offline_access'] as const;
+export const DEFAULT_SCOPES = ['openid', 'profile', 'email', 'offline_access'] as const;
 
 export interface NormalizedConfig {
   clientId: string;
@@ -58,7 +61,7 @@ export function normalizeConfig(config: AuthorizaConfig): NormalizedConfig {
   }
   const issuer = configuredIssuer.replace(/\/+$/, '');
 
-  let configuredScopes: string[] = [];
+  let configuredScopes: string[] | undefined;
   if (config.scope !== undefined) {
     if (
       !Array.isArray(config.scope) ||
@@ -68,7 +71,9 @@ export function normalizeConfig(config: AuthorizaConfig): NormalizedConfig {
     }
     configuredScopes = config.scope;
   }
-  const scopes = [...new Set([...REQUIRED_SCOPES, ...configuredScopes])];
+  const scopeSource =
+    configuredScopes === undefined ? DEFAULT_SCOPES : [...REQUIRED_SCOPES, ...configuredScopes];
+  const scopes = [...new Set(scopeSource)];
 
   let sessionStorage: SessionStorage;
   if (config.sessionStorage === undefined) {
