@@ -1,4 +1,5 @@
 import { AuthorizaError } from '../errors.js';
+import { isValidRelativePath } from '../utils/url.js';
 
 export const AUTH_FLOW_KEY_PREFIX = 'authoriza:authflow:';
 
@@ -38,31 +39,36 @@ export class AuthFlowStorage {
     if (raw === null) {
       return null;
     }
+    let record: Record<string, unknown>;
     try {
-      const record = JSON.parse(raw) as Record<string, unknown>;
-      if (
-        !record ||
-        typeof record.state !== 'string' ||
-        typeof record.nonce !== 'string' ||
-        typeof record.codeVerifier !== 'string'
-      ) {
-        return null;
-      }
-      const redirectAfterLoginTo =
-        record.redirectAfterLoginTo === null || record.redirectAfterLoginTo === undefined
-          ? null
-          : typeof record.redirectAfterLoginTo === 'string'
-            ? record.redirectAfterLoginTo
-            : null;
-      return {
-        state: record.state,
-        nonce: record.nonce,
-        codeVerifier: record.codeVerifier,
-        redirectAfterLoginTo,
-      };
+      record = JSON.parse(raw) as Record<string, unknown>;
     } catch {
       return null;
     }
+    if (
+      !record ||
+      typeof record.state !== 'string' ||
+      typeof record.nonce !== 'string' ||
+      typeof record.codeVerifier !== 'string'
+    ) {
+      return null;
+    }
+    let redirectAfterLoginTo: string | null = null;
+    if (record.redirectAfterLoginTo !== null && record.redirectAfterLoginTo !== undefined) {
+      if (!isValidRelativePath(record.redirectAfterLoginTo)) {
+        throw new AuthorizaError(
+          'INVALID_REDIRECT_AFTER_LOGIN',
+          'Stored redirectAfterLoginTo value is invalid',
+        );
+      }
+      redirectAfterLoginTo = record.redirectAfterLoginTo;
+    }
+    return {
+      state: record.state,
+      nonce: record.nonce,
+      codeVerifier: record.codeVerifier,
+      redirectAfterLoginTo,
+    };
   }
 
   async set(flow: AuthFlow): Promise<void> {
