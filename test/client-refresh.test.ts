@@ -36,11 +36,13 @@ describe('getAccessToken', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('returns null when the user is not authenticated', async () => {
+  it('throws USER_NOT_AUTHENTICATED when the user is not authenticated', async () => {
     stubFetch(() => httpResponse(discoveryBody()));
     const auth = makeAuth();
     await waitForInit(auth);
-    await expect(auth.getAccessToken()).resolves.toBeNull();
+    await expect(auth.getAccessToken()).rejects.toMatchObject({
+      code: 'USER_NOT_AUTHENTICATED',
+    });
   });
 
   it('refreshes an expired access token and persists the new tokens', async () => {
@@ -260,7 +262,7 @@ describe('getAccessToken', () => {
     await auth.logout();
     resolveGate();
 
-    await expect(pending).resolves.toBeNull();
+    await expect(pending).rejects.toMatchObject({ code: 'USER_NOT_AUTHENTICATED' });
     expect(auth.isAuthenticated).toBe(false);
     expect(window.localStorage.getItem(sessionKey())).toBeNull();
   });

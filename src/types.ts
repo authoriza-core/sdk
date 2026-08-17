@@ -76,7 +76,7 @@ export interface Authoriza {
   login(options?: LoginOptions): Promise<void>;
   logout(): Promise<void>;
   getUser(): Promise<User | null>;
-  getAccessToken(): Promise<string | null>;
+  getAccessToken(): Promise<string>;
   getAuthState(): AuthState;
   readonly isAuthenticated: boolean;
   readonly isLoading: boolean;

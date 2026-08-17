@@ -66,7 +66,7 @@ export class AuthorizaClient {
   private currentSession: Session | null = null;
   private loading = true;
   private initPromise: Promise<void> | null = null;
-  private refreshPromise: Promise<string | null> | null = null;
+  private refreshPromise: Promise<string> | null = null;
   private loginPromise: Promise<void> | null = null;
   private activeLoginRedirect: string | null = null;
   private lastEmittedState: AuthState | null = null;
@@ -220,11 +220,14 @@ export class AuthorizaClient {
     return this.user;
   }
 
-  async getAccessToken(): Promise<string | null> {
+  async getAccessToken(): Promise<string> {
     await this.ready();
     const session = this.currentSession;
     if (!session) {
-      return null;
+      throw new AuthorizaError(
+        'USER_NOT_AUTHENTICATED',
+        'Cannot get an access token without an active session',
+      );
     }
     if (Date.now() + REFRESH_SAFETY_MARGIN_MS < session.expiresAt) {
       return session.accessToken;
@@ -506,7 +509,7 @@ export class AuthorizaClient {
 
   // ----- refresh internals -------------------------------------------------
 
-  private refreshToken(): Promise<string | null> {
+  private refreshToken(): Promise<string> {
     if (this.refreshPromise) {
       return this.refreshPromise;
     }
@@ -516,15 +519,21 @@ export class AuthorizaClient {
     return this.refreshPromise;
   }
 
-  private async doRefresh(): Promise<string | null> {
+  private async doRefresh(): Promise<string> {
     const session = this.currentSession;
     if (!session) {
-      return null;
+      throw new AuthorizaError(
+        'USER_NOT_AUTHENTICATED',
+        'Cannot refresh an access token without an active session',
+      );
     }
     if (!session.refreshToken) {
       // Cannot refresh: the session is no longer usable.
       await this.invalidateSession();
-      return null;
+      throw new AuthorizaError(
+        'USER_NOT_AUTHENTICATED',
+        'Cannot refresh an access token without a refresh token',
+      );
     }
 
     let discovery: OidcDiscovery;
@@ -571,7 +580,10 @@ export class AuthorizaClient {
     if (this.currentSession !== session) {
       // A logout (or another operation) replaced the session while the refresh
       // was in flight: do not write the refreshed tokens back.
-      return null;
+      throw new AuthorizaError(
+        'USER_NOT_AUTHENTICATED',
+        'The session changed while refreshing the access token',
+      );
     }
 
     let user = session.user;
